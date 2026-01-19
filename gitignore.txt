@@ -1,0 +1,15 @@
+# Eclipse workspace (never commit)
+.metadata/
+
+# Java / Spring Boot
+target/
+*.log
+
+# IDE files
+.classpath
+.project
+.settings/
+
+# OS files
+Thumbs.db
+.DS_Store
