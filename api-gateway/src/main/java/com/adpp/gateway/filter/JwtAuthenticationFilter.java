@@ -25,19 +25,41 @@ public class JwtAuthenticationFilter implements GlobalFilter {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 
         String path = exchange.getRequest().getURI().getPath();
-        System.out.println("GATEWAY PATH = " + path);
 
-        // ✅ ONLY login & register are public
-        if (path.startsWith("/auth/login") || path.startsWith("/auth/register")) {
+        System.out.println("🌐 GATEWAY PATH = " + path);
+
+        /* ===================================================
+           ✅ PUBLIC ROUTES (NO JWT REQUIRED)
+        =================================================== */
+
+        if (
+                path.startsWith("/auth") ||
+
+                // property browsing is public
+                path.equals("/properties") ||
+                path.startsWith("/properties/search") ||
+                path.matches("/properties/\\d+") ||
+
+                // swagger
+                path.startsWith("/swagger") ||
+                path.startsWith("/v3/api-docs")
+        ) {
             return chain.filter(exchange);
         }
 
-        String authHeader = exchange.getRequest()
-                .getHeaders()
-                .getFirst(HttpHeaders.AUTHORIZATION);
+        /* ===================================================
+           🔐 PROTECTED ROUTES
+        =================================================== */
+
+        String authHeader =
+                exchange.getRequest()
+                        .getHeaders()
+                        .getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("❌ Missing or invalid Authorization header");
+
+            System.out.println("❌ Missing Authorization header");
+
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
@@ -45,19 +67,31 @@ public class JwtAuthenticationFilter implements GlobalFilter {
         String token = authHeader.substring(7);
 
         try {
-            Claims claims = jwtUtil.validateToken(token);
-            System.out.println("✅ JWT VALID: " + claims);
 
-            exchange = exchange.mutate()
-                    .request(exchange.getRequest().mutate()
-                            .header("X-User-Id", claims.get("userId").toString())
-                            .header("X-User-Role", claims.get("role").toString())
-                            .build())
-                    .build();
+            Claims claims = jwtUtil.validateToken(token);
+
+            String userId = claims.get("userId").toString();
+            String role = claims.get("role").toString();
+
+            System.out.println("✅ JWT VALID USER=" + userId + " ROLE=" + role);
+
+            // forward headers to microservices
+            exchange =
+                    exchange.mutate()
+                            .request(
+                                    exchange.getRequest()
+                                            .mutate()
+                                            .header("X-USER-ID", userId)
+                                            .header("X-USER-ROLE", role)
+                                            .build()
+                            )
+                            .build();
 
         } catch (Exception e) {
-            System.out.println("❌ JWT ERROR");
+
+            System.out.println("❌ JWT INVALID");
             e.printStackTrace();
+
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }

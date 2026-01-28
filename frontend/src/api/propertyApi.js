@@ -1,23 +1,52 @@
-import axiosInstance from "./axiosInstance";
+import api from "./axios";
 
-// get all approved properties
+/* ======================
+   CUSTOMER / PUBLIC
+====================== */
+
 export const getAllProperties = () => {
-  return axiosInstance.get("/properties");
+  return api.get("/properties");
 };
 
-// get property by id
 export const getPropertyById = (id) => {
-  return axiosInstance.get(`/properties/${id}`);
+  return api.get(`/properties/${id}`);
 };
 
-// get images of property
 export const getPropertyImages = (id) => {
-  return axiosInstance.get(`/properties/${id}/images`);
+  return api.get(`/properties/${id}/images`);
 };
 
-// search/filter properties
 export const searchProperties = (params) => {
-  return axiosInstance.get("/properties/search", {
+  return api.get("/properties/search", {
     params,
   });
+};
+
+/* ======================
+   ADMIN
+====================== */
+
+// 🔥 MASTER LIST — any status + pagination
+export const getAdminProperties = ({
+  status,
+  page = 0,
+  size = 9,
+}) => {
+  return api.get("/properties/admin/list", {
+    params: {
+      status,
+      page,
+      size,
+    },
+  });
+};
+
+// approve
+export const approveProperty = (id) => {
+  return api.put(`/properties/${id}/approve`);
+};
+
+// reject
+export const rejectProperty = (id) => {
+  return api.put(`/properties/${id}/reject`);
 };

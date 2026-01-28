@@ -1,11 +1,28 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 
-import { getPropertyById, getPropertyImages } from "../../api/propertyApi";
+import {
+  getPropertyById,
+  getPropertyImages,
+  approveProperty,
+  rejectProperty,
+} from "../../api/propertyApi";
+
 import { sendEnquiry } from "../../api/enquiryApi";
+import { addToCart } from "../../api/cartApi";
+
+import {
+  selectIsAdmin,
+  selectIsLoggedIn,
+} from "../../store/authSlice";
 
 export default function PropertyDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
+
+  const isAdmin = useSelector(selectIsAdmin);
+  const isLoggedIn = useSelector(selectIsLoggedIn);
 
   const [property, setProperty] = useState(null);
   const [images, setImages] = useState([]);
@@ -13,6 +30,10 @@ export default function PropertyDetails() {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [processing, setProcessing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
     fetchProperty();
@@ -34,6 +55,70 @@ export default function PropertyDetails() {
       setLoading(false);
     }
   };
+
+  /* ======================
+       CART SAVE
+  ====================== */
+
+  const handleSave = async () => {
+  if (!isLoggedIn) {
+    navigate(`/auth/login?redirect=/properties/${id}`);
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setSaveStatus("");
+
+    await addToCart(property.id, property.price);
+
+    setSaveStatus("✅ Property saved!");
+  } catch (err) {
+    console.error(err);
+    setSaveStatus("❌ Failed to save property");
+  } finally {
+    setSaving(false);
+  }
+};
+
+
+  /* ======================
+        ADMIN
+  ====================== */
+
+  const handleApprove = async () => {
+    if (!window.confirm("Approve this property?")) return;
+
+    try {
+      setProcessing(true);
+      await approveProperty(id);
+      navigate("/admin");
+    } catch (err) {
+      console.error(err);
+      alert("Approval failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!window.confirm("Reject this property?")) return;
+
+    try {
+      setProcessing(true);
+      await rejectProperty(id);
+      navigate("/admin");
+    } catch (err) {
+      console.error(err);
+      alert("Rejection failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  /* ======================
+       UI STATES
+  ====================== */
 
   if (loading) return <h2>Loading...</h2>;
   if (!property) return <h2>{status}</h2>;
@@ -75,46 +160,134 @@ export default function PropertyDetails() {
         {property.addressLine}, {property.state} - {property.pincode}
       </p>
 
-      <hr />
+      {/* ======================
+     SAVE BUTTON
+====================== */}
 
-      {/* ENQUIRY FORM */}
-      <h3>Send Enquiry</h3>
+{!isAdmin && isLoggedIn && (
+  <div style={{ marginTop: 20 }}>
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      style={{
+        background: "#2563eb",
+        color: "white",
+        border: "none",
+        padding: "10px 16px",
+        borderRadius: 6,
+        cursor: "pointer",
+        opacity: saving ? 0.6 : 1,
+      }}
+    >
+      {saving ? "Saving..." : "💾 Save Property"}
+    </button>
 
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
+    {saveStatus && (
+      <p style={{ marginTop: 8 }}>{saveStatus}</p>
+    )}
 
-          if (!message.trim()) {
-            setStatus("Message cannot be empty");
-            return;
-          }
-
-          try {
-            await sendEnquiry({
-              propertyId: property.id,
-              message,
-            });
-
-            setStatus("✅ Enquiry sent successfully!");
-            setMessage("");
-          } catch (err) {
-            console.error(err);
-            setStatus("❌ Failed to send enquiry");
-          }
-        }}
+    {saveStatus.includes("saved") && (
+      <Link
+        to="/customer/saved"
+        style={{ display: "block", marginTop: 6 }}
       >
-        <textarea
-          rows={4}
-          style={{ width: "100%", marginBottom: 10 }}
-          placeholder="Write your enquiry here..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
+        View Saved Properties →
+      </Link>
+    )}
+  </div>
+)}
 
-        <button type="submit">Send</button>
+      {/* ======================
+           ADMIN ACTIONS
+      ====================== */}
 
-        {status && <p>{status}</p>}
-      </form>
+      {isAdmin && property.status === "PENDING" && (
+        <>
+          <hr />
+
+          <h3>Admin Actions</h3>
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              onClick={handleApprove}
+              disabled={processing}
+              style={{
+                background: "green",
+                color: "white",
+                border: "none",
+                padding: "8px 14px",
+                cursor: "pointer",
+                opacity: processing ? 0.6 : 1,
+              }}
+            >
+              {processing ? "Processing..." : "✅ Approve"}
+            </button>
+
+            <button
+              onClick={handleReject}
+              disabled={processing}
+              style={{
+                background: "#b00020",
+                color: "white",
+                border: "none",
+                padding: "8px 14px",
+                cursor: "pointer",
+                opacity: processing ? 0.6 : 1,
+              }}
+            >
+              {processing ? "Processing..." : "🚫 Reject"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ======================
+           CUSTOMER ENQUIRY
+      ====================== */}
+
+      {!isAdmin && (
+        <>
+          <hr />
+
+          <h3>Send Enquiry</h3>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+
+              if (!message.trim()) {
+                setStatus("Message cannot be empty");
+                return;
+              }
+
+              try {
+                await sendEnquiry({
+                  propertyId: property.id,
+                  message,
+                });
+
+                setStatus("✅ Enquiry sent successfully!");
+                setMessage("");
+              } catch (err) {
+                console.error(err);
+                setStatus("❌ Failed to send enquiry");
+              }
+            }}
+          >
+            <textarea
+              rows={4}
+              style={{ width: "100%", marginBottom: 10 }}
+              placeholder="Write your enquiry here..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+
+            <button type="submit">Send</button>
+
+            {status && <p>{status}</p>}
+          </form>
+        </>
+      )}
     </div>
   );
 }

@@ -6,36 +6,74 @@ import com.app.model.Property;
 
 public class PropertySpecification {
 
+    /* ======================
+       COMMON FILTERS
+    ====================== */
+
     public static Specification<Property> hasCity(String city) {
         return (root, query, cb) ->
-                city == null ? null : cb.equal(root.get("city"), city);
+                city == null || city.isBlank()
+                        ? null
+                        : cb.equal(root.get("city"), city);
     }
 
     public static Specification<Property> hasPropertyType(String type) {
         return (root, query, cb) ->
-                type == null ? null : cb.equal(root.get("propertyType"), type);
+                type == null || type.isBlank()
+                        ? null
+                        : cb.equal(root.get("propertyType"), type);
     }
+
+    public static Specification<Property> hasStatus(String status) {
+        return (root, query, cb) ->
+                status == null
+                        ? null
+                        : cb.equal(root.get("status"), status);
+    }
+
+    /* ======================
+       PRICE FILTER
+    ====================== */
 
     public static Specification<Property> priceBetween(
             Double minPrice,
             Double maxPrice) {
 
         return (root, query, cb) -> {
+
             if (minPrice == null && maxPrice == null)
                 return null;
 
             if (minPrice != null && maxPrice != null)
-                return cb.between(root.get("price"), minPrice, maxPrice);
+                return cb.between(
+                        root.get("price"),
+                        minPrice,
+                        maxPrice);
 
             if (minPrice != null)
-                return cb.greaterThanOrEqualTo(root.get("price"), minPrice);
+                return cb.greaterThanOrEqualTo(
+                        root.get("price"),
+                        minPrice);
 
-            return cb.lessThanOrEqualTo(root.get("price"), maxPrice);
+            return cb.lessThanOrEqualTo(
+                    root.get("price"),
+                    maxPrice);
         };
     }
 
+    /* ======================
+       STATUS SHORTCUTS
+    ====================== */
+
     public static Specification<Property> isApproved() {
-        return (root, query, cb) ->
-                cb.equal(root.get("status"), "APPROVED");
+        return hasStatus("APPROVED");
+    }
+
+    public static Specification<Property> isPending() {
+        return hasStatus("PENDING");
+    }
+
+    public static Specification<Property> isRejected() {
+        return hasStatus("REJECTED");
     }
 }

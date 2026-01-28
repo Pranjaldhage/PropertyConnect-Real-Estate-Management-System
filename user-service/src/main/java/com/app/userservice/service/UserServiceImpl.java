@@ -28,8 +28,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserProfile getProfileByUserId(Long userId) {
         return profileRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User profile not found"));
+                .orElse(null);
     }
+
 
     @Override
     public Address addAddress(Address address) {

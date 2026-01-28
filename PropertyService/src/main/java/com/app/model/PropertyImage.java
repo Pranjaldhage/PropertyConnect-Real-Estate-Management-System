@@ -1,5 +1,7 @@
 package com.app.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -19,6 +21,7 @@ public class PropertyImage {
     // MANY IMAGES → ONE PROPERTY
     @ManyToOne
     @JoinColumn(name = "property_id")
+    @JsonIgnore
     private Property property;
 
     // getters and setters

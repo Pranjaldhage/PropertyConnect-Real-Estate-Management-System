@@ -1,11 +1,11 @@
-import axiosInstance from "./axiosInstance";
+import api from "./axios";
 
 // LOGIN
 export const loginUser = (data) => {
-  return axiosInstance.post("/auth/login", data);
+  return api.post("/auth/login", data);
 };
 
 // REGISTER
 export const registerUser = (data) => {
-  return axiosInstance.post("/auth/register", data);
+  return api.post("/auth/register", data);
 };

@@ -1,8 +1,12 @@
 using CartService.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ----------------------------
+// DB CONTEXT
+// ----------------------------
 builder.Services.AddDbContext<CartDbContext>(options =>
 {
     options.UseMySql(
@@ -13,14 +17,27 @@ builder.Services.AddDbContext<CartDbContext>(options =>
     );
 });
 
-builder.Services.AddControllers();
+// ----------------------------
+// CONTROLLERS + JSON
+// ----------------------------
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler =
+            ReferenceHandler.IgnoreCycles;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// ----------------------------
+// MIDDLEWARE PIPELINE
+// ----------------------------
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
+
 app.Run();

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EnquiryService.Controllers
 {
     [ApiController]
-    [Route("api/enquiries")]
+    [Route("enquiries")]
     public class EnquiryController : ControllerBase
     {
         private readonly EnquiryDbContext _context;
@@ -15,11 +15,11 @@ namespace EnquiryService.Controllers
             _context = context;
         }
 
-        // POST: api/enquiries
+        // POST: enquiries
         [HttpPost]
         public async Task<IActionResult> CreateEnquiry([FromBody] Enquiry enquiry)
         {
-            enquiry.Status = "NEW";
+            enquiry.Status = EnquiryStatus.NEW;
             enquiry.CreatedAt = DateTime.UtcNow;
             enquiry.UpdatedAt = DateTime.UtcNow;
 
@@ -29,7 +29,7 @@ namespace EnquiryService.Controllers
             return Ok(enquiry);
         }
 
-        // GET: api/enquiries/owner/{ownerId}
+        // GET: enquiries/owner/{ownerId}
         [HttpGet("owner/{ownerId}")]
         public async Task<IActionResult> GetEnquiriesForOwner(long ownerId)
         {
@@ -40,7 +40,7 @@ namespace EnquiryService.Controllers
             return Ok(enquiries);
         }
 
-        // GET: api/enquiries/customer/{customerId}
+        // GET: enquiries/customer/{customerId}
         [HttpGet("customer/{customerId}")]
         public async Task<IActionResult> GetEnquiriesForCustomer(long customerId)
         {
@@ -68,7 +68,7 @@ namespace EnquiryService.Controllers
                 return BadRequest("Invalid status value");
             }
 
-            enquiry.Status = request.Status;
+            enquiry.Status = EnquiryStatus.NEW;
             enquiry.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace CartService.Models;
 
@@ -17,5 +18,6 @@ public class CartItem
     public decimal Price { get; set; }
 
     [ForeignKey("CartId")]
-    public Cart Cart { get; set; }
+    [JsonIgnore] // ⭐ break circular ref
+    public Cart Cart { get; set; } = null!;
 }

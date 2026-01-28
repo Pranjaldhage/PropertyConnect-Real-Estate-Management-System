@@ -31,8 +31,15 @@ public class UserController {
     public UserProfile getProfile(
             @RequestHeader("X-USER-ID") Long userId) {
 
-        return userService.getProfileByUserId(userId);
+        UserProfile profile = userService.getProfileByUserId(userId);
+
+        if (profile == null) {
+            return new UserProfile(); // empty profile for new users
+        }
+
+        return profile;
     }
+
 
     @PostMapping("/address")
     public Address addAddress(

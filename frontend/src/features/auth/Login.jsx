@@ -9,7 +9,14 @@ import { useDispatch } from "react-redux";
 
 import { loginUser } from "../../api/authApi";
 import { getMyProfile } from "../../api/userApi";
-import { setAuth } from "../../store/authSlice";
+import { getSavedProperties } from "../../api/cartApi";
+
+import {
+  setAuth,
+  setSavedCount,
+} from "../../store/authSlice";
+
+import { jwtDecode } from "jwt-decode";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -17,15 +24,9 @@ export default function Login() {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
 
-  // 🔥 read redirect from:
-  // 1) query param ?redirect=
-  // 2) route state
-  // 3) default /
+  // redirect sources
   const redirectParam = searchParams.get("redirect");
   const redirectState = location.state?.from;
-
-  const redirectTo =
-    redirectParam || redirectState || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +39,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1️⃣ login
+      /* ======================
+         1️⃣ LOGIN
+      ====================== */
       const res = await loginUser({
         email,
         password,
@@ -46,22 +49,78 @@ export default function Login() {
 
       const token = res.data;
 
-      // 2️⃣ save token
+      /* ======================
+         🔥 SAVE TOKEN FIRST
+      ====================== */
       localStorage.setItem("token", token);
 
-      // 3️⃣ fetch profile
+      /* ======================
+         2️⃣ DECODE JWT
+      ====================== */
+      const decoded = jwtDecode(token);
+
+      const role =
+        decoded.role ||
+        decoded.userRole ||
+        decoded.authorities;
+
+      const userId =
+        decoded.userId ||
+        decoded.id ||
+        decoded.sub;
+
+      /* ======================
+         3️⃣ FETCH PROFILE
+      ====================== */
       const profileRes = await getMyProfile();
 
-      // 4️⃣ save redux
+      /* ======================
+         4️⃣ SAVE REDUX
+      ====================== */
       dispatch(
         setAuth({
           token,
-          user: profileRes.data,
+          user: {
+            ...profileRes.data,
+            id: userId,
+            role,
+          },
         })
       );
 
-      // 5️⃣ redirect back
+      /* ======================
+         5️⃣ CART BADGE SYNC
+      ====================== */
+      if (role === "CUSTOMER") {
+        try {
+          const cartRes = await getSavedProperties();
+
+          dispatch(
+            setSavedCount(
+              cartRes.data.items?.length || 0
+            )
+          );
+        } catch (err) {
+          console.warn(
+            "Cart fetch failed after login"
+          );
+          dispatch(setSavedCount(0));
+        }
+      }
+
+      /* ======================
+         6️⃣ REDIRECT
+      ====================== */
+      const defaultRedirect =
+        role === "ADMIN" ? "/admin" : "/";
+
+      const redirectTo =
+        redirectParam ||
+        redirectState ||
+        defaultRedirect;
+
       navigate(redirectTo, { replace: true });
+
     } catch (err) {
       console.error("LOGIN ERROR:", err);
       setError("Invalid credentials");
@@ -78,7 +137,9 @@ export default function Login() {
         <input
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
         />
 
         <br />
@@ -87,7 +148,9 @@ export default function Login() {
           type="password"
           placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
         />
 
         <br />
@@ -97,7 +160,12 @@ export default function Login() {
         </button>
 
         {error && (
-          <p style={{ color: "red", marginTop: 8 }}>
+          <p
+            style={{
+              color: "red",
+              marginTop: 8,
+            }}
+          >
             {error}
           </p>
         )}

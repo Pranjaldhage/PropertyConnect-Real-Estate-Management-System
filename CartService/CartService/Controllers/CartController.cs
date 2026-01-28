@@ -1,5 +1,6 @@
 ﻿using CartService.Data;
 using CartService.Models;
+using CartService.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +20,8 @@ public class CartController : ControllerBase
     // ✅ ADD TO CART
     [HttpPost("add")]
     public async Task<IActionResult> AddToCart(
-        [FromHeader(Name = "X-User-Id")] long userId,
-        [FromBody] AddToCartRequest request)
+    [FromHeader(Name = "X-USER-ID")] long userId,
+    [FromBody] AddToCartRequest request)
     {
         if (userId == 0)
             return Unauthorized("User not authenticated");
@@ -31,7 +32,12 @@ public class CartController : ControllerBase
 
         if (cart == null)
         {
-            cart = new Cart { UserId = userId };
+            cart = new Cart
+            {
+                UserId = userId,
+                Items = new List<CartItem>()
+            };
+
             _context.Carts.Add(cart);
             await _context.SaveChangesAsync();
         }
@@ -54,28 +60,47 @@ public class CartController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
-        return Ok("Item added to cart");
+
+        return Ok(new { message = "Item added to cart" });
     }
+
 
     // ✅ VIEW CART
     [HttpGet]
     public async Task<IActionResult> GetCart(
-        [FromHeader(Name = "X-User-Id")] long userId)
+        [FromHeader(Name = "X-USER-ID")] long userId)
     {
         var cart = await _context.Carts
             .Include(c => c.Items)
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (cart == null)
-            return Ok(new { Items = new List<CartItem>() });
+        {
+            return Ok(new CartDto
+            {
+                UserId = userId,
+                Items = new List<CartItemDto>()
+            });
+        }
 
-        return Ok(cart);
+        var dto = new CartDto
+        {
+            UserId = cart.UserId,
+            Items = cart.Items.Select(i => new CartItemDto
+            {
+                PropertyId = i.PropertyId,
+                Price = i.Price,
+                Quantity = i.Quantity
+            }).ToList()
+        };
+
+        return Ok(dto);
     }
 
     // ✅ REMOVE ITEM
     [HttpDelete("remove/{propertyId}")]
     public async Task<IActionResult> RemoveItem(
-        [FromHeader(Name = "X-User-Id")] long userId,
+        [FromHeader(Name = "X-USER-ID")] long userId,
         long propertyId)
     {
         var cart = await _context.Carts

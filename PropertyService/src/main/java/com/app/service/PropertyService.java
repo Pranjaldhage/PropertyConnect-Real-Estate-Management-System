@@ -1,7 +1,10 @@
 package com.app.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 
 import com.app.model.Property;
@@ -17,35 +20,82 @@ public class PropertyService {
         this.repository = repository;
     }
 
-    // Add property (Agent)
+    /* ======================
+       CUSTOMER
+    ====================== */
+
+    // Add property
     public Property addProperty(Property property) {
         property.setStatus("PENDING");
         return repository.save(property);
     }
 
-    // Admin approval
+    /* ======================
+       ADMIN ACTIONS
+    ====================== */
+
+    // Approve property
     public Property approveProperty(Long id) {
-        Property property = repository.findById(id).orElseThrow();
+
+        Property property = repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Property not found"));
+
+        if (!"PENDING".equals(property.getStatus())) {
+            throw new RuntimeException(
+                    "Only PENDING properties can be approved");
+        }
+
         property.setStatus("APPROVED");
         return repository.save(property);
     }
 
-    // Customer view
-    public List<Property> getApprovedProperties() {
-        return repository.findByStatus("APPROVED");
+    // Reject property
+    public Property rejectProperty(Long id) {
+
+        Property property = repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Property not found"));
+
+        if (!"PENDING".equals(property.getStatus())) {
+            throw new RuntimeException(
+                    "Only PENDING properties can be rejected");
+        }
+
+        property.setStatus("REJECTED");
+        return repository.save(property);
     }
 
-    // Price filter
-    public List<Property> filterByPrice(Double price) {
-        return repository.findByPriceLessThanEqualAndStatus(price, "APPROVED");
+    /* ======================
+       ADMIN LISTING
+    ====================== */
+
+    // 🔥 Generic admin list by status (paged)
+    public Page<Property> getPropertiesByStatusPaged(
+            String status,
+            Pageable pageable
+    ) {
+
+        Specification<Property> spec =
+                Specification.where(
+                        PropertySpecification.hasStatus(status));
+
+        return repository.findAll(spec, pageable);
     }
-    
-    // Type filter
-    public List<Property> filterByPropertyType(String type) {
-        return repository.findByPropertyTypeAndStatus(type, "APPROVED");
+
+    /* ======================
+       PUBLIC
+    ====================== */
+
+    public List<Property> getApprovedProperties() {
+
+        Specification<Property> spec =
+                Specification.where(
+                        PropertySpecification.hasStatus("APPROVED"));
+
+        return repository.findAll(spec);
     }
-    
-    //Combined Filters
+
     public List<Property> filterProperties(
             String city,
             String propertyType,
@@ -53,12 +103,20 @@ public class PropertyService {
             Double maxPrice) {
 
         Specification<Property> spec =
-                Specification.where(PropertySpecification.isApproved())
+                Specification.where(
+                        PropertySpecification.hasStatus("APPROVED"))
                         .and(PropertySpecification.hasCity(city))
                         .and(PropertySpecification.hasPropertyType(propertyType))
-                        .and(PropertySpecification.priceBetween(minPrice, maxPrice));
+                        .and(PropertySpecification.priceBetween(
+                                minPrice, maxPrice));
 
         return repository.findAll(spec);
     }
 
+    public Property getPropertyById(Long id) {
+
+        return repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Property not found"));
+    }
 }

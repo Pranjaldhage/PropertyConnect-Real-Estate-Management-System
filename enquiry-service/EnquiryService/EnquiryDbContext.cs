@@ -9,4 +9,13 @@ public class EnquiryDbContext : DbContext
     }
 
     public DbSet<Enquiry> Enquiries => Set<Enquiry>();
+
+
+    // 👇 ADD THIS PART
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Enquiry>()
+            .Property(e => e.Status)
+            .HasConversion<string>();
+    }
 }

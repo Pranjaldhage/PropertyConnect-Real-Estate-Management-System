@@ -14,6 +14,7 @@ target/
 Thumbs.db
 .DS_Store
 
+<<<<<<< HEAD
 ~$*
 
 # Visual Studio
@@ -21,3 +22,18 @@ Thumbs.db
 
 **/bin/
 **/obj/
+=======
+
+# Node
+node_modules/
+
+# Word temp
+~$*
+
+# Visual Studio / .NET
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+>>>>>>> cart-service

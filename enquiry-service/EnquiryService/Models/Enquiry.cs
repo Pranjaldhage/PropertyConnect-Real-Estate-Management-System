@@ -7,6 +7,7 @@ namespace EnquiryService.Models
     public class Enquiry
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public long Id { get; set; }
 
         [Column("property_id")]
@@ -22,12 +23,12 @@ namespace EnquiryService.Models
         public string Message { get; set; } = string.Empty;
 
         [Required]
-        public string Status { get; set; } = "NEW";
+        public EnquiryStatus Status { get; set; } = EnquiryStatus.NEW;
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }
