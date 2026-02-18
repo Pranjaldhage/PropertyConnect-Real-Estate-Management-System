@@ -1,24 +1,32 @@
+import { Link } from "react-router-dom";
+
 export default function PropertyCard({ property }) {
   return (
-    <div
-      style={{
-        border: "1px solid #ddd",
-        borderRadius: 8,
-        padding: 16,
-        width: 280,
-      }}
-    >
-      <h3>{property.title}</h3>
+    <div className="card h-100 shadow-sm border-0 rounded-3">
+      <div className="card-body d-flex flex-column">
+        <h5 className="fw-semibold mb-2">
+          {property.title}
+        </h5>
 
-      <p>📍 {property.city}</p>
+        <div className="text-muted mb-1">
+          📍 {property.city}
+        </div>
 
-      <p>
-        ₹ {property.price.toLocaleString()}
-      </p>
+        <div className="fw-bold mb-1">
+          ₹ {property.price?.toLocaleString()}
+        </div>
 
-      <p>{property.area} sq.ft</p>
+        <div className="text-muted mb-3">
+          {property.areaSqft} sq.ft
+        </div>
 
-      <button>View Details</button>
+        <Link
+          to={`/properties/${property.id}`}
+          className="btn btn-outline-primary mt-auto"
+        >
+          View Details
+        </Link>
+      </div>
     </div>
   );
 }

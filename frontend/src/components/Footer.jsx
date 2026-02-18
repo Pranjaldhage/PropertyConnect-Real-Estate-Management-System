@@ -1,7 +1,9 @@
 export default function Footer() {
   return (
-    <footer style={{ textAlign: "center", padding: 15, background: "#eee" }}>
-      © 2026 Real Estate Platform
+    <footer className="mt-auto bg-dark border-top border-secondary">
+      <div className="container py-2 text-center text-light small">
+          © {new Date().getFullYear()} PropertyConnect 🏠 | All rights reserved.
+      </div>
     </footer>
   );
 }

@@ -18,6 +18,20 @@ builder.Services.AddDbContext<CartDbContext>(options =>
 });
 
 // ----------------------------
+// CORS (Gateway usually handles, but safe for dev)
+// ----------------------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowGateway", policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithOrigins("http://localhost:8086");
+    });
+});
+
+// ----------------------------
 // CONTROLLERS + JSON
 // ----------------------------
 builder.Services.AddControllers()
@@ -35,8 +49,26 @@ var app = builder.Build();
 // ----------------------------
 // MIDDLEWARE PIPELINE
 // ----------------------------
-app.UseSwagger();
-app.UseSwaggerUI();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseCors("AllowGateway");
+
+// global exception mapping
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsync("Unauthorized");
+    });
+});
 
 app.MapControllers();
 

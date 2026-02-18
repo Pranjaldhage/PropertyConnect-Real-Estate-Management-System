@@ -1,158 +1,101 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 
 import {
   selectUser,
-  selectIsAdmin,
-  selectPendingCount,
-  clearAuth,
   selectRole,
-  selectSavedCount,
+  selectIsAdmin,
+  clearAuth,
+  selectAuth,
 } from "../store/authSlice";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  const { loaded } = useSelector(selectAuth);
   const user = useSelector(selectUser);
-  const isAdmin = useSelector(selectIsAdmin);
   const role = useSelector(selectRole);
-  const pendingCount = useSelector(selectPendingCount);
-  const savedCount = useSelector(selectSavedCount);
+  const isAdmin = useSelector(selectIsAdmin);
 
   const handleLogout = () => {
-    dispatch(clearAuth());
-    navigate("/");
+    dispatch(clearAuth({ reason: "manual" }));
+    navigate("/auth/login");
   };
 
+  if (!loaded) return null;
+
+  const navClass = ({ isActive }) =>
+    `text-decoration-none px-2 py-1 ${isActive ? "text-white fw-semibold" : "text-secondary"
+    }`;
+
   return (
-    <nav
-      style={{
-        background: "#222",
-        color: "#fff",
-        padding: "10px 20px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <h2>🏠 RealEstate</h2>
+    <nav className="bg-dark border-bottom border-secondary">
+      <div className="container py-2 d-flex flex-wrap align-items-center justify-content-between gap-3">
 
-      <div
-        style={{
-          display: "flex",
-          gap: 18,
-          alignItems: "center",
-        }}
-      >
-        {/* HOME */}
-        <Link to="/" style={{ color: "#fff" }}>
-          Home
-        </Link>
+        {/* BRAND */}
+        <button
+          className="btn btn-link p-0 text-decoration-none text-white fw-bold fs-5"
+          type="button"
+          onClick={() => navigate(isAdmin ? "/admin" : "/")}
+        >
+          🏠 PropertyConnect
+        </button>
 
-        {/* 👤 CUSTOMER DASHBOARD */}
-        {role === "CUSTOMER" && (
-          <Link to="/customer/dashboard" style={{ color: "#fff" }}>
-            Dashboard
-          </Link>
-        )}
+        {/* LINKS */}
+        <div className="d-flex flex-wrap align-items-center gap-2">
 
-        {/* 👤 CUSTOMER PROFILE */}
-        {role === "CUSTOMER" && (
-          <Link to="/customer/profile" style={{ color: "#fff" }}>
-            Profile
-          </Link>
-        )}
+          <NavLink to="/" className={navClass}>
+            Home
+          </NavLink>
 
-        {/* 💾 SAVED WITH BADGE */}
-        {role === "CUSTOMER" && (
-          <Link
-            to="/customer/saved"
-            style={{
-              color: "#fff",
-              fontWeight: "500",
-              position: "relative",
-            }}
-          >
-            Saved
+          {role === "CUSTOMER" && (
+            <>
+              <NavLink to="/customer/dashboard" className={navClass}>
+                Dashboard
+              </NavLink>
 
-            {savedCount > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -8,
-                  right: -14,
-                  background: "#2563eb",
-                  color: "white",
-                  fontSize: 11,
-                  padding: "2px 6px",
-                  borderRadius: "50%",
-                }}
-              >
-                {savedCount}
-              </span>
-            )}
-          </Link>
-        )}
+              <NavLink to="/customer/profile" className={navClass}>
+                Profile
+              </NavLink>
 
-        {/* =====================
-            ADMIN LINK + BADGE
-        ===================== */}
-        {isAdmin && (
-          <Link
-            to="/admin"
-            style={{
-              color: "#fff",
-              position: "relative",
-              fontWeight: "bold",
-            }}
-          >
-            Admin
+              <NavLink to="/customer/properties/add" className={navClass}>
+                Add Property
+              </NavLink>
 
-            {pendingCount > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -8,
-                  right: -14,
-                  background: "red",
-                  color: "white",
-                  fontSize: 11,
-                  padding: "2px 6px",
-                  borderRadius: "50%",
-                }}
-              >
-                {pendingCount}
-              </span>
-            )}
-          </Link>
-        )}
+              <NavLink to="/customer/saved" className={navClass}>
+                Saved Properties
+              </NavLink>
 
-        {/* USER EMAIL */}
-        {user && (
-          <span style={{ color: "#aaa" }}>
-            👤 {user.email}
-          </span>
-        )}
+              <NavLink to="/customer/enquiries" className={navClass}>
+                My Enquiries
+              </NavLink>
+            </>
+          )}
 
-        {/* LOGIN / LOGOUT */}
-        {!user ? (
-          <Link to="/auth/login" style={{ color: "#fff" }}>
-            Login
-          </Link>
-        ) : (
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "transparent",
-              border: "1px solid white",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            Logout
-          </button>
-        )}
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `text-white text-decoration-none px-2 py-1 rounded fw-semibold ${isActive ? "bg-danger" : "opacity-75"
+                }`
+              }
+            >
+              Admin
+            </NavLink>
+          )}
+
+          {/* AUTH */}
+          {!user ? (
+            <Link className="btn btn-outline-light btn-sm" to="/auth/login">
+              Login
+            </Link>
+          ) : (
+            <button className="btn btn-outline-light btn-sm" onClick={handleLogout}>
+              Logout
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

@@ -11,11 +11,7 @@ import { loginUser } from "../../api/authApi";
 import { getMyProfile } from "../../api/userApi";
 import { getSavedProperties } from "../../api/cartApi";
 
-import {
-  setAuth,
-  setSavedCount,
-} from "../../store/authSlice";
-
+import { setAuth, setSavedCount } from "../../store/authSlice";
 import { jwtDecode } from "jwt-decode";
 
 export default function Login() {
@@ -24,7 +20,6 @@ export default function Login() {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
 
-  // redirect sources
   const redirectParam = searchParams.get("redirect");
   const redirectState = location.state?.from;
 
@@ -33,50 +28,35 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const pageStyle = {
+    background: "#f6f8fc",
+    minHeight: "calc(100vh - 56px)",
+    display: "flex",
+    alignItems: "center",
+  };
+
+  const cardStyle = {
+    borderRadius: 18,
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      /* ======================
-         1️⃣ LOGIN
-      ====================== */
-      const res = await loginUser({
-        email,
-        password,
-      });
-
+      const res = await loginUser({ email, password });
       const token = res.data;
 
-      /* ======================
-         🔥 SAVE TOKEN FIRST
-      ====================== */
       localStorage.setItem("token", token);
 
-      /* ======================
-         2️⃣ DECODE JWT
-      ====================== */
       const decoded = jwtDecode(token);
 
-      const role =
-        decoded.role ||
-        decoded.userRole ||
-        decoded.authorities;
+      const role = decoded.role || decoded.userRole || decoded.authorities;
+      const userId = decoded.userId || decoded.id || decoded.sub;
 
-      const userId =
-        decoded.userId ||
-        decoded.id ||
-        decoded.sub;
-
-      /* ======================
-         3️⃣ FETCH PROFILE
-      ====================== */
       const profileRes = await getMyProfile();
 
-      /* ======================
-         4️⃣ SAVE REDUX
-      ====================== */
       dispatch(
         setAuth({
           token,
@@ -88,96 +68,108 @@ export default function Login() {
         })
       );
 
-      /* ======================
-         5️⃣ CART BADGE SYNC
-      ====================== */
       if (role === "CUSTOMER") {
         try {
           const cartRes = await getSavedProperties();
-
-          dispatch(
-            setSavedCount(
-              cartRes.data.items?.length || 0
-            )
-          );
-        } catch (err) {
-          console.warn(
-            "Cart fetch failed after login"
-          );
+          dispatch(setSavedCount(cartRes.data.items?.length || 0));
+        } catch {
           dispatch(setSavedCount(0));
         }
       }
 
-      /* ======================
-         6️⃣ REDIRECT
-      ====================== */
-      const defaultRedirect =
-        role === "ADMIN" ? "/admin" : "/";
-
-      const redirectTo =
-        redirectParam ||
-        redirectState ||
-        defaultRedirect;
+      const defaultRedirect = role === "ADMIN" ? "/admin" : "/";
+      const redirectTo = redirectParam || redirectState || defaultRedirect;
 
       navigate(redirectTo, { replace: true });
-
     } catch (err) {
       console.error("LOGIN ERROR:", err);
-      setError("Invalid credentials");
+      setError("Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "50px auto" }}>
-      <h2>Login</h2>
-
-      <form onSubmit={handleSubmit}>
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-        />
-
-        <br />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-        />
-
-        <br />
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-
-        {error && (
-          <p
+    <section style={pageStyle}>
+      <div className="container py-4" style={{ maxWidth: 420 }}>
+        <div className="text-center mb-4">
+          {/* icon bubble like Home */}
+          <div
+            className="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle"
             style={{
-              color: "red",
-              marginTop: 8,
+              width: 72,
+              height: 72,
+              background:
+                "linear-gradient(135deg, rgba(13,110,253,0.15), rgba(13,110,253,0.05))",
+              fontSize: 30,
             }}
           >
-            {error}
-          </p>
-        )}
-      </form>
+            🔐
+          </div>
 
-      {/* SIGN UP LINK */}
-      <p style={{ marginTop: 10 }}>
-        New user?{" "}
-        <Link to="/auth/register">
-          Sign up
-        </Link>
-      </p>
-    </div>
+          <h3 className="fw-bold mb-1" style={{ letterSpacing: "-0.4px" }}>
+            Login
+          </h3>
+          <p className="text-muted mb-0">Sign in to continue</p>
+        </div>
+
+        <div className="card border-0 shadow-sm" style={cardStyle}>
+          <div className="card-body p-4">
+            <form onSubmit={handleSubmit} noValidate>
+              {/* EMAIL */}
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  placeholder="Enter email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              {/* PASSWORD */}
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              {/* ERROR */}
+              {error && (
+                <div className="alert alert-danger py-2 mb-3">
+                  {error}
+                </div>
+              )}
+
+              {/* BUTTON */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary btn-lg w-100 rounded-3 shadow-sm"
+              >
+                {loading ? "Logging in..." : "Login"}
+              </button>
+            </form>
+
+            <div className="text-center mt-3">
+              <span className="text-muted">New user?</span>{" "}
+              <Link to="/auth/register" className="text-decoration-none fw-semibold">
+                Create account
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

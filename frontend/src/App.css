@@ -40,3 +40,12 @@
 .read-the-docs {
   color: #888;
 }
+
+.property-card {
+  transition: all 0.25s ease;
+}
+
+.property-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 30px rgba(0,0,0,.15);
+}

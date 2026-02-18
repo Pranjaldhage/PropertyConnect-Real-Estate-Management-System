@@ -17,14 +17,17 @@ public class CartController : ControllerBase
         _context = context;
     }
 
-    // ✅ ADD TO CART
+    /* ============================
+       ADD TO CART
+    ============================ */
+
     [HttpPost("add")]
     public async Task<IActionResult> AddToCart(
-    [FromHeader(Name = "X-USER-ID")] long userId,
-    [FromBody] AddToCartRequest request)
+        [FromHeader(Name = "X-USER-ID")] long? userId,
+        [FromHeader(Name = "X-USER-ROLE")] string? role,
+        [FromBody] AddToCartRequest request)
     {
-        if (userId == 0)
-            return Unauthorized("User not authenticated");
+        ValidateGatewayHeaders(userId, role);
 
         var cart = await _context.Carts
             .Include(c => c.Items)
@@ -34,7 +37,7 @@ public class CartController : ControllerBase
         {
             cart = new Cart
             {
-                UserId = userId,
+                UserId = userId!.Value,
                 Items = new List<CartItem>()
             };
 
@@ -43,7 +46,8 @@ public class CartController : ControllerBase
         }
 
         var existingItem = cart.Items
-            .FirstOrDefault(i => i.PropertyId == request.PropertyId);
+            .FirstOrDefault(i =>
+                i.PropertyId == request.PropertyId);
 
         if (existingItem != null)
         {
@@ -64,21 +68,27 @@ public class CartController : ControllerBase
         return Ok(new { message = "Item added to cart" });
     }
 
+    /* ============================
+       VIEW CART
+    ============================ */
 
-    // ✅ VIEW CART
     [HttpGet]
     public async Task<IActionResult> GetCart(
-        [FromHeader(Name = "X-USER-ID")] long userId)
+        [FromHeader(Name = "X-USER-ID")] long? userId,
+        [FromHeader(Name = "X-USER-ROLE")] string? role)
     {
+        ValidateGatewayHeaders(userId, role);
+
         var cart = await _context.Carts
             .Include(c => c.Items)
-            .FirstOrDefaultAsync(c => c.UserId == userId);
+            .FirstOrDefaultAsync(
+                c => c.UserId == userId);
 
         if (cart == null)
         {
             return Ok(new CartDto
             {
-                UserId = userId,
+                UserId = userId!.Value,
                 Items = new List<CartItemDto>()
             });
         }
@@ -86,39 +96,70 @@ public class CartController : ControllerBase
         var dto = new CartDto
         {
             UserId = cart.UserId,
-            Items = cart.Items.Select(i => new CartItemDto
-            {
-                PropertyId = i.PropertyId,
-                Price = i.Price,
-                Quantity = i.Quantity
-            }).ToList()
+            Items = cart.Items.Select(i =>
+                new CartItemDto
+                {
+                    PropertyId = i.PropertyId,
+                    Price = i.Price,
+                    Quantity = i.Quantity
+                }).ToList()
         };
 
         return Ok(dto);
     }
 
-    // ✅ REMOVE ITEM
+    /* ============================
+       REMOVE ITEM
+    ============================ */
+
     [HttpDelete("remove/{propertyId}")]
     public async Task<IActionResult> RemoveItem(
-        [FromHeader(Name = "X-USER-ID")] long userId,
-        long propertyId)
+        [FromHeader(Name = "X-USER-ID")] long? userId,
+        [FromHeader(Name = "X-USER-ROLE")] string? role,
+        [FromRoute] long propertyId)
     {
+        ValidateGatewayHeaders(userId, role);
+
         var cart = await _context.Carts
             .Include(c => c.Items)
-            .FirstOrDefaultAsync(c => c.UserId == userId);
+            .FirstOrDefaultAsync(
+                c => c.UserId == userId);
 
         if (cart == null)
             return NotFound("Cart not found");
 
         var item = cart.Items
-            .FirstOrDefault(i => i.PropertyId == propertyId);
+            .FirstOrDefault(
+                i => i.PropertyId == propertyId);
 
         if (item == null)
             return NotFound("Item not found");
 
         cart.Items.Remove(item);
+
         await _context.SaveChangesAsync();
 
         return Ok("Item removed");
+    }
+
+    /* ============================
+       SECURITY
+    ============================ */
+
+    private static void ValidateGatewayHeaders(
+        long? userId,
+        string? role)
+    {
+        if (!userId.HasValue || string.IsNullOrEmpty(role))
+        {
+            throw new UnauthorizedAccessException(
+                "Missing gateway authentication headers");
+        }
+
+        if (role != "CUSTOMER" && role != "ADMIN")
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid role");
+        }
     }
 }

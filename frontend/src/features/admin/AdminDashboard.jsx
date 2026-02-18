@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import {
   getAdminProperties,
   approveProperty,
@@ -10,60 +9,64 @@ import {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [properties, setProperties] = useState([]);
-
   const [status, setStatus] = useState("PENDING");
-
+  const [properties, setProperties] = useState([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [processingId, setProcessingId] = useState(null);
 
-  /* ======================
-     LOAD DATA
-  ====================== */
+  const pageStyle = {
+    background: "#f6f8fc",
+    minHeight: "calc(100vh - 56px)",
+  };
+
+  const shellStyle = {
+    maxWidth: 1100,
+  };
+
+  const cardStyle = {
+    borderRadius: 18,
+  };
+
+  // ✅ visible pill colors (fix for "not visible" issue)
+  const statusPillClass = (s) => {
+    if (s === "PENDING") return "bg-warning text-dark";
+    if (s === "APPROVED") return "bg-success";
+    if (s === "REJECTED") return "bg-danger";
+    return "bg-secondary";
+  };
 
   useEffect(() => {
     fetchAdminProperties();
+    // eslint-disable-next-line
   }, [status, page]);
 
   const fetchAdminProperties = async () => {
     setLoading(true);
     setError("");
-
     try {
-      const res = await getAdminProperties({
-        status,
-        page,
-        size: 9,
-      });
-
+      const res = await getAdminProperties({ status, page, size: 9 });
       setProperties(res.data.content || []);
       setTotalPages(res.data.totalPages || 0);
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
       setError("❌ Failed to load properties");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ======================
-     ACTIONS
-  ====================== */
-
   const handleApprove = async (id) => {
     if (!window.confirm("Approve this property?")) return;
-
     try {
       setProcessingId(id);
       await approveProperty(id);
       fetchAdminProperties();
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
       alert("Approval failed");
     } finally {
       setProcessingId(null);
@@ -72,240 +75,265 @@ export default function AdminDashboard() {
 
   const handleReject = async (id) => {
     if (!window.confirm("Reject this property?")) return;
-
     try {
       setProcessingId(id);
       await rejectProperty(id);
       fetchAdminProperties();
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
       alert("Rejection failed");
     } finally {
       setProcessingId(null);
     }
   };
 
-  const goToDetails = (id) => {
-    navigate(`/properties/${id}`);
+  const setTab = (nextStatus) => {
+    setStatus(nextStatus);
+    setPage(0);
   };
 
-  /* ======================
-     UI STATES
-  ====================== */
-
-  if (loading)
-    return (
-      <h2 style={{ padding: 20 }}>
-        ⏳ Loading {status.toLowerCase()} properties...
-      </h2>
-    );
-
-  if (error)
-    return (
-      <h2 style={{ padding: 20, color: "red" }}>
-        {error}
-      </h2>
-    );
-
   return (
-    <div style={{ padding: 20 }}>
-      <h2>🛠 Admin Dashboard</h2>
-
-      {/* ======================
-         STATUS TABS
-      ====================== */}
-
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        {["PENDING", "APPROVED", "REJECTED"].map((s) => (
-          <button
-            key={s}
-            onClick={() => {
-              setStatus(s);
-              setPage(0);
-            }}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 6,
-              border: "1px solid #ccc",
-              cursor: "pointer",
-              background:
-                status === s ? "#1976d2" : "#eee",
-              color:
-                status === s ? "white" : "black",
-            }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {properties.length === 0 && (
-        <p style={{ marginTop: 20 }}>
-          🎉 No {status.toLowerCase()} properties
-        </p>
-      )}
-
-      {/* ======================
-         GRID
-      ====================== */}
-
-      <div
-        style={{
-          marginTop: 20,
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fill, minmax(300px, 1fr))",
-          gap: 22,
-        }}
-      >
-        {properties.map((p) => {
-          const primaryImage =
-            p.images?.find((img) => img.isPrimary) ||
-            p.images?.[0];
-
-          return (
-            <div
-              key={p.id}
-              style={{
-                border: "1px solid #ddd",
-                padding: 15,
-                borderRadius: 8,
-                background: "#fafafa",
-              }}
-            >
-              <img
-                src={
-                  primaryImage?.imageUrl ||
-                  "https://via.placeholder.com/400x250?text=No+Image"
-                }
-                alt={p.title}
-                onClick={() => goToDetails(p.id)}
-                style={{
-                  width: "100%",
-                  height: 170,
-                  objectFit: "cover",
-                  borderRadius: 6,
-                  marginBottom: 10,
-                  cursor: "pointer",
-                }}
-              />
-
-              <h3>{p.title}</h3>
-              <p>{p.city}</p>
-              <p>
-                <b>₹ {p.price}</b>
-              </p>
-              <p>Status: {p.status}</p>
-
-              {/* ACTIONS */}
-              {status === "PENDING" && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    marginTop: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    onClick={() =>
-                      goToDetails(p.id)
-                    }
-                    style={{
-                      background: "#1976d2",
-                      color: "white",
-                      border: "none",
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    👁 View Details
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleApprove(p.id)
-                    }
-                    disabled={
-                      processingId === p.id
-                    }
-                    style={{
-                      background: "green",
-                      color: "white",
-                      border: "none",
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    ✅ Approve
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleReject(p.id)
-                    }
-                    disabled={
-                      processingId === p.id
-                    }
-                    style={{
-                      background: "#b00020",
-                      color: "white",
-                      border: "none",
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🚫 Reject
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ======================
-         PAGINATION
-      ====================== */}
-
-      {totalPages > 1 && (
-        <div
-          style={{
-            marginTop: 30,
-            display: "flex",
-            justifyContent: "center",
-            gap: 14,
-          }}
-        >
-          <button
-            disabled={page === 0}
-            onClick={() =>
-              setPage((p) => p - 1)
-            }
-          >
-            ◀ Prev
-          </button>
-
-          <span>
-            Page {page + 1} of {totalPages}
-          </span>
-
-          <button
-            disabled={page === totalPages - 1}
-            onClick={() =>
-              setPage((p) => p + 1)
-            }
-          >
-            Next ▶
-          </button>
+    <section style={pageStyle}>
+      <div className="container py-4" style={shellStyle}>
+        {/* HEADER */}
+        <div className="mb-4 text-center">
+          <h1 className="fw-bold mb-1" style={{ letterSpacing: "-0.4px" }}>
+            Admin Dashboard
+          </h1>
+          <p className="text-muted mb-0">Manage listings and approvals</p>
         </div>
-      )}
-    </div>
+
+        {/* STATUS FILTER (matches your screenshot) */}
+        <div className="card border-0 shadow-sm mb-4" style={cardStyle}>
+          <div className="card-body p-4">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+              <div>
+                <h5 className="fw-bold mb-1">Status Filter</h5>
+                <p className="text-muted mb-0">
+                  Select a status to view properties
+                </p>
+              </div>
+
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <span
+                  className={`badge rounded-pill px-3 py-2 ${statusPillClass(
+                    status
+                  )}`}
+                >
+                  {status}
+                </span>
+
+                <button
+                  className="btn btn-primary rounded-3 px-3"
+                  onClick={fetchAdminProperties}
+                >
+                  🔄 Refresh
+                </button>
+
+                <button
+                  className="btn btn-outline-secondary rounded-3 px-3"
+                  onClick={() => navigate("/")}
+                >
+                  Home
+                </button>
+              </div>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-md-4">
+                <button
+                  className={`btn w-100 rounded-3 ${
+                    status === "PENDING" ? "btn-primary" : "btn-outline-primary"
+                  }`}
+                  style={{ height: 48 }}
+                  onClick={() => setTab("PENDING")}
+                >
+                  ⏳ Pending
+                </button>
+              </div>
+
+              <div className="col-md-4">
+                <button
+                  className={`btn w-100 rounded-3 ${
+                    status === "APPROVED" ? "btn-primary" : "btn-outline-primary"
+                  }`}
+                  style={{ height: 48 }}
+                  onClick={() => setTab("APPROVED")}
+                >
+                  ✅ Approved
+                </button>
+              </div>
+
+              <div className="col-md-4">
+                <button
+                  className={`btn w-100 rounded-3 ${
+                    status === "REJECTED" ? "btn-primary" : "btn-outline-primary"
+                  }`}
+                  style={{ height: 48 }}
+                  onClick={() => setTab("REJECTED")}
+                >
+                  ⛔ Rejected
+                </button>
+              </div>
+            </div>
+
+            <div className="text-muted small mt-3">
+              Showing <b>{properties.length}</b> item(s) on this page.
+            </div>
+          </div>
+        </div>
+
+        {/* LOADING */}
+        {loading && (
+          <div className="card border-0 shadow-sm" style={cardStyle}>
+            <div className="card-body p-5 text-center">
+              <div className="spinner-border text-primary mb-3" role="status" />
+              <div className="text-muted">Loading properties...</div>
+            </div>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {error && (
+          <div className="card border-0 shadow-sm" style={cardStyle}>
+            <div className="card-body p-4 text-center">
+              <div className="text-danger fw-semibold mb-3">{error}</div>
+              <button
+                className="btn btn-primary rounded-3"
+                onClick={fetchAdminProperties}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* EMPTY */}
+        {!loading && !error && properties.length === 0 && (
+          <div className="card border-0 shadow-sm" style={cardStyle}>
+            <div className="card-body p-5 text-center">
+              <h4 className="fw-bold mb-2">No {status} Properties</h4>
+              <p className="text-muted mb-0">
+                You’re all caught up. Switch status to check other listings.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* GRID */}
+        {!loading && !error && properties.length > 0 && (
+          <>
+            <div className="row g-4">
+              {properties.map((p) => {
+                const primaryImage =
+                  p.images?.find((img) => img.isPrimary) || p.images?.[0];
+                const busy = processingId === p.id;
+
+                return (
+                  <div key={p.id} className="col-md-6 col-lg-4">
+                    <div
+                      className="card h-100 border-0 shadow-sm overflow-hidden"
+                      style={cardStyle}
+                    >
+                      {/* IMAGE */}
+                      <img
+                        src={
+                          primaryImage?.imageUrl ||
+                          "https://via.placeholder.com/800x500?text=No+Image"
+                        }
+                        alt={p.title}
+                        style={{
+                          height: 180,
+                          width: "100%",
+                          objectFit: "cover",
+                          cursor: "pointer",
+                          background: "#eef1f6",
+                        }}
+                        onClick={() => navigate(`/properties/${p.id}`)}
+                      />
+
+                      {/* BODY */}
+                      <div className="card-body p-4">
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <h6 className="fw-semibold mb-1">{p.title}</h6>
+
+                          {/* ✅ FIXED BADGE (now visible) */}
+                          <span
+                            className={`badge rounded-pill px-3 py-2 ${statusPillClass(
+                              p.status
+                            )}`}
+                            style={{ fontSize: "0.75rem" }}
+                          >
+                            {p.status}
+                          </span>
+                        </div>
+
+                        <div className="text-muted mb-2">📍 {p.city || "—"}</div>
+                        <div className="fw-bold mb-3">₹ {p.price}</div>
+
+                        <div className="d-flex gap-2 flex-wrap">
+                          <button
+                            className="btn btn-outline-primary rounded-3"
+                            onClick={() => navigate(`/properties/${p.id}`)}
+                          >
+                            View Details
+                          </button>
+
+                          {status === "PENDING" && (
+                            <>
+                              <button
+                                className="btn btn-success rounded-3"
+                                onClick={() => handleApprove(p.id)}
+                                disabled={busy}
+                              >
+                                {busy ? "Processing..." : "Approve"}
+                              </button>
+
+                              <button
+                                className="btn btn-danger rounded-3"
+                                onClick={() => handleReject(p.id)}
+                                disabled={busy}
+                              >
+                                {busy ? "Processing..." : "Reject"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* PAGINATION */}
+            {totalPages > 1 && (
+              <div className="d-flex justify-content-center align-items-center gap-3 mt-5">
+                <button
+                  className="btn btn-outline-secondary rounded-3"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  ◀ Prev
+                </button>
+
+                <span className="fw-semibold text-muted">
+                  Page <span className="text-dark">{page + 1}</span> of{" "}
+                  <span className="text-dark">{totalPages}</span>
+                </span>
+
+                <button
+                  className="btn btn-outline-secondary rounded-3"
+                  disabled={page === totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next ▶
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
   );
 }

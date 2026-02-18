@@ -1,6 +1,9 @@
 package com.app.controller;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -8,39 +11,85 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.app.model.Property;
+import com.app.model.PropertyImage;
+import com.app.repository.PropertyRepository;
 import com.app.service.PropertyService;
 
 @RestController
 @RequestMapping("/properties")
 public class PropertyController {
 
+    private final PropertyRepository propertyRepository;
     private final PropertyService service;
 
-    public PropertyController(PropertyService service) {
+    public PropertyController(PropertyService service, PropertyRepository propertyRepository) {
         this.service = service;
+        this.propertyRepository = propertyRepository;
     }
 
     /* ============================
-       CUSTOMER / PUBLIC
+       HELPERS
     ============================ */
 
-    // add new property (logged in users)
+    private void validateGatewayHeaders(Long userId, String role) {
+        if (userId == null || role == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Missing gateway authentication headers");
+        }
+    }
+
+    private void requireAdmin(String role) {
+        if (!"ADMIN".equals(role)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "ADMIN role required");
+        }
+    }
+
+    /* ============================
+       CUSTOMER (LOGGED IN)
+       ✅ SINGLE POST /properties
+       ✅ property_id will be set for images
+    ============================ */
+
     @PostMapping
     public Property add(
             @RequestBody Property property,
-            @RequestHeader("X-USER-ID") Long userId) {
+            @RequestHeader(value = "X-USER-ID", required = false) Long userId,
+            @RequestHeader(value = "X-USER-ROLE", required = false) String role) {
 
+        validateGatewayHeaders(userId, role);
+
+        if (!"CUSTOMER".equals(role)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Only CUSTOMER can add property");
+        }
+
+        // ownerId from gateway
         property.setOwnerId(userId);
+
+        // ✅ VERY IMPORTANT: attach property to each image
+        if (property.getImages() != null) {
+            for (PropertyImage img : property.getImages()) {
+                img.setProperty(property); // ✅ sets FK property_id
+            }
+        }
+
+        // ✅ Save once (Property + Images cascade)
         return service.addProperty(property);
     }
 
-    // get approved only (public)
+    /* ============================
+       PUBLIC
+    ============================ */
+
     @GetMapping
     public List<Property> getApproved() {
         return service.getApprovedProperties();
     }
 
-    // get property by id (public)
     @GetMapping("/{id}")
     public Property getById(@PathVariable Long id) {
         return service.getPropertyById(id);
@@ -53,89 +102,67 @@ public class PropertyController {
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice) {
 
-        return service.filterProperties(
-                city, propertyType, minPrice, maxPrice);
+        return service.filterProperties(city, propertyType, minPrice, maxPrice);
     }
 
     /* ============================
        ADMIN ONLY
     ============================ */
 
-    // approve property
     @PutMapping("/{id}/approve")
     public Property approve(
             @PathVariable Long id,
-            @RequestHeader("X-USER-ROLE") String role) {
+            @RequestHeader(value = "X-USER-ID", required = false) Long userId,
+            @RequestHeader(value = "X-USER-ROLE", required = false) String role) {
 
-        if (!"ADMIN".equals(role)) {
-            throw new RuntimeException("Only ADMIN can approve property");
-        }
+        validateGatewayHeaders(userId, role);
+        requireAdmin(role);
 
         return service.approveProperty(id);
     }
 
-    // reject property
     @PutMapping("/{id}/reject")
     public Property reject(
             @PathVariable Long id,
-            @RequestHeader("X-USER-ROLE") String role) {
+            @RequestHeader(value = "X-USER-ID", required = false) Long userId,
+            @RequestHeader(value = "X-USER-ROLE", required = false) String role) {
 
-        if (!"ADMIN".equals(role)) {
-            throw new RuntimeException("Only ADMIN can reject property");
-        }
+        validateGatewayHeaders(userId, role);
+        requireAdmin(role);
 
         return service.rejectProperty(id);
     }
 
-    /* ===================================================
-       🔥 ADMIN MASTER LIST — ALL STATUSES
-       /properties/admin/list?status=PENDING
-       /properties/admin/list?status=APPROVED
-       /properties/admin/list?status=REJECTED
-    =================================================== */
+    /* ============================
+       ADMIN MASTER LIST
+    ============================ */
 
     @GetMapping("/admin/list")
     public Page<Property> getAdminProperties(
-            @RequestHeader("X-USER-ROLE") String role,
-
+            @RequestHeader(value = "X-USER-ID", required = false) Long userId,
+            @RequestHeader(value = "X-USER-ROLE", required = false) String role,
             @RequestParam String status,
-
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
 
-        if (!"ADMIN".equals(role)) {
-            throw new RuntimeException("Only ADMIN allowed");
-        }
+        validateGatewayHeaders(userId, role);
+        requireAdmin(role);
 
         Pageable pageable = PageRequest.of(page, size);
-
-        return service.getPropertiesByStatusPaged(
-                status,
-                pageable
-        );
+        return service.getPropertiesByStatusPaged(status, pageable);
     }
-
-    /* ==================================
-       Legacy endpoint (optional)
-    ================================== */
 
     @GetMapping("/admin/pending")
     public Page<Property> getPendingProperties(
-            @RequestHeader("X-USER-ROLE") String role,
+            @RequestHeader(value = "X-USER-ID", required = false) Long userId,
+            @RequestHeader(value = "X-USER-ROLE", required = false) String role,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
 
-        if (!"ADMIN".equals(role)) {
-            throw new RuntimeException("Only ADMIN can view pending properties");
-        }
+        validateGatewayHeaders(userId, role);
+        requireAdmin(role);
 
         Pageable pageable = PageRequest.of(page, size);
-
-        return service.getPropertiesByStatusPaged(
-                "PENDING",
-                pageable
-        );
+        return service.getPropertiesByStatusPaged("PENDING", pageable);
     }
 }

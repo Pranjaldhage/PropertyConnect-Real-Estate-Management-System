@@ -14,26 +14,24 @@ public class UserServiceClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // 🔥 CALL THROUGH GATEWAY — not directly user-service
+    // ✅ CALL USER-SERVICE DIRECTLY (internal)
     private static final String USER_SERVICE_URL =
-            "http://localhost:8086/users/profile";
+            "http://localhost:8083/users/profile";
 
     /**
      * Auto-create empty profile after registration
      */
     public void createProfile(Long userId) {
 
-        // empty profile body
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "");
         body.put("phone", "");
         body.put("gender", "UNKNOWN");
 
-        // headers
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // gateway → user-service reads this
+        // internal trust header
         headers.set("X-USER-ID", userId.toString());
 
         HttpEntity<Map<String, Object>> entity =

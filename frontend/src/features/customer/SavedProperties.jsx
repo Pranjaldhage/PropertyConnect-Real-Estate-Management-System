@@ -1,79 +1,59 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 
-import {
-  getSavedProperties,
-  removeFromCart,
-} from "../../api/cartApi";
-
+import { getSavedProperties, removeFromCart } from "../../api/cartApi";
 import { getPropertyById } from "../../api/propertyApi";
-
-import {
-  selectIsLoggedIn,
-  setSavedCount,
-} from "../../store/authSlice";
+import { selectIsLoggedIn } from "../../store/authSlice";
 
 export default function SavedProperties() {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-
   const isLoggedIn = useSelector(selectIsLoggedIn);
 
-  const [items, setItems] = useState([]);
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const pageStyle = {
+    background: "#f6f8fc",
+    minHeight: "calc(100vh - 56px)",
+  };
+
+  const cardStyle = {
+    borderRadius: 18,
+    overflow: "hidden",
+  };
 
   useEffect(() => {
     if (!isLoggedIn) {
       navigate("/auth/login");
       return;
     }
-
     fetchSaved();
+    // eslint-disable-next-line
   }, [isLoggedIn]);
 
   const fetchSaved = async () => {
     try {
       setLoading(true);
+      setError("");
 
       const res = await getSavedProperties();
-      const cartItems = res.data.items || [];
+      const items = res.data.items || [];
 
-      setItems(cartItems);
-
-      // 🔥 update navbar badge
-      const totalQty = cartItems.reduce(
-  (sum, i) => sum + i.quantity,
-  0
-);
-
-dispatch(setSavedCount(totalQty));
-
-      // 🔥 fetch property details
       const details = await Promise.all(
-  cartItems.map(async (i) => {
-    try {
-      const r = await getPropertyById(i.propertyId);
+        items.map(async (i) => {
+          try {
+            const r = await getPropertyById(i.propertyId);
+            return r.data;
+          } catch {
+            return null;
+          }
+        })
+      );
 
-      return {
-        ...r.data,
-        quantity: i.quantity,
-        price: i.price,
-      };
-    } catch {
-      return null;
-    }
-  })
-);
-
-setProperties(details.filter(Boolean));
-
-
-      setProperties(details);
+      setProperties(details.filter(Boolean));
     } catch (err) {
-      console.error("Failed to fetch saved", err);
       setError("Failed to load saved properties");
     } finally {
       setLoading(false);
@@ -83,98 +63,113 @@ setProperties(details.filter(Boolean));
   const handleRemove = async (propertyId) => {
     try {
       await removeFromCart(propertyId);
-
-      // re-fetch cart → sync redux + UI
       fetchSaved();
-    } catch (err) {
-      alert("Failed to remove item");
+    } catch {
+      alert("Failed to remove property");
     }
   };
 
-  if (loading)
-    return <p className="p-6">Loading saved properties...</p>;
+  if (loading) {
+    return (
+      <section style={pageStyle}>
+        <div className="container py-5 text-center">
+          <div className="spinner-border text-primary mb-3" />
+          <div className="text-muted">Loading saved properties…</div>
+        </div>
+      </section>
+    );
+  }
 
-  if (error)
-    return <p className="p-6 text-red-600">{error}</p>;
+  if (error) {
+    return (
+      <section style={pageStyle}>
+        <div className="container py-4" style={{ maxWidth: 980 }}>
+          <div className="alert alert-danger mb-0">{error}</div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">
-        Saved Properties
-      </h1>
-
-      {properties.length === 0 ? (
-        <p>No saved properties.</p>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: 20,
-          }}
-        >
-          {properties.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: 10,
-                overflow: "hidden",
-                background: "white",
-              }}
-            >
-              {/* IMAGE */}
-              <img
-                src={
-                  p.images?.[0]?.imageUrl ||
-                  "https://via.placeholder.com/400x250"
-                }
-                alt={p.title}
-                style={{
-                  width: "100%",
-                  height: 200,
-                  objectFit: "cover",
-                }}
-              />
-
-              <div style={{ padding: 14 }}>
-                <h3>{p.title}</h3>
-
-                <p>{p.city}</p>
-
-                <p>₹ {p.price}</p>
-
-                <p>Qty: {p.quantity}</p>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    gap: 10,
-                  }}
-                >
-                  <Link
-                    to={`/properties/${p.id}`}
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
-                  >
-                    View
-                  </Link>
-
-                  <button
-                    onClick={() =>
-                      handleRemove(p.id)
-                    }
-                    className="bg-red-600 text-white px-4 py-2 rounded"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+    <section style={pageStyle}>
+      <div className="container py-4" style={{ maxWidth: 980 }}>
+        {/* HEADER (MATCHES OTHER PAGES) */}
+        <div className="mb-4 text-center">
+          <h1 className="fw-bold mb-1" style={{ letterSpacing: "-0.4px" }}>
+            Saved Properties
+          </h1>
+          <p className="text-muted mb-0">
+            Your shortlisted properties appear here.
+          </p>
         </div>
-      )}
-    </div>
+
+        {/* EMPTY STATE */}
+        {properties.length === 0 ? (
+          <div
+            className="d-flex flex-column align-items-center justify-content-center text-center"
+            style={{ minHeight: "50vh" }}
+          >
+            <div className="display-6 mb-2">💾</div>
+            <h5 className="fw-bold">No saved properties</h5>
+            <p className="text-muted mb-3" style={{ maxWidth: 480 }}>
+              Browse properties and save the ones you like.
+            </p>
+            <Link to="/properties" className="btn btn-primary btn-lg px-5 rounded-3">
+              Browse Properties
+            </Link>
+          </div>
+        ) : (
+          <div className="row g-4">
+            {properties.map((p) => {
+              const img =
+                p.images?.find((x) => x.isPrimary)?.imageUrl ||
+                p.images?.[0]?.imageUrl ||
+                "https://via.placeholder.com/600x400?text=Property";
+
+              return (
+                <div className="col-sm-6 col-lg-4" key={p.id}>
+                  <div className="card h-100 border-0 shadow-sm" style={cardStyle}>
+                    {/* IMAGE */}
+                    <div style={{ height: 200, background: "#eef1f6" }}>
+                      <img
+                        src={img}
+                        alt={p.title}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
+
+                    {/* BODY */}
+                    <div className="card-body p-4">
+                      <h6 className="fw-semibold mb-1">{p.title}</h6>
+                      <div className="text-muted mb-2">📍 {p.city || "—"}</div>
+                      <div className="fw-bold mb-3">₹ {p.price}</div>
+
+                      <div className="d-flex gap-2">
+                        <Link
+                          to={`/properties/${p.id}`}
+                          className="btn btn-primary w-100 rounded-3"
+                        >
+                          View
+                        </Link>
+                        <button
+                          onClick={() => handleRemove(p.id)}
+                          className="btn btn-outline-danger w-100 rounded-3"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

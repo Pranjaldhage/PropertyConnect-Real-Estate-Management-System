@@ -3,7 +3,10 @@ package com.app.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "properties")
@@ -53,9 +56,20 @@ public class Property {
     private LocalDateTime updatedAt;
 
     // ONE PROPERTY → MANY IMAGES
-    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL)
-    private List<PropertyImage> images;
 
+    @OneToMany(
+    	    mappedBy = "property",
+    	    cascade = CascadeType.ALL,
+    	    orphanRemoval = true,
+    	    fetch = FetchType.LAZY
+    	)
+    	@JsonManagedReference
+    	private List<PropertyImage> images;
+
+    public void addImage(PropertyImage img) {
+      images.add(img);
+      img.setProperty(this); // ✅ sets property_id
+    } 
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();

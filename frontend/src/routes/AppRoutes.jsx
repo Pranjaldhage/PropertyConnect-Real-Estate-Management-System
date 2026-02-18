@@ -1,6 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "../components/Layout";
 
+import Home from "../pages/Home";
+
 import PropertyList from "../features/property/PropertyList";
 import PropertyDetails from "../features/property/PropertyDetails";
 import Login from "../features/auth/Login";
@@ -13,9 +15,8 @@ import AdminDashboard from "../features/admin/AdminDashboard";
 import CustomerProfile from "../features/customer/CustomerProfile";
 import MyEnquiries from "../features/customer/MyEnquiries";
 import CustomerDashboard from "../features/customer/CustomerDashboard";
-
 import SavedProperties from "../features/customer/SavedProperties";
-
+import AddProperty from "../features/customer/AddProperty";
 
 export default function AppRoutes() {
   return (
@@ -24,7 +25,9 @@ export default function AppRoutes() {
         {/* =====================
             PUBLIC
         ===================== */}
-        <Route path="/" element={<PropertyList />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/properties" element={<PropertyList />} />
+
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/register" element={<Register />} />
 
@@ -77,16 +80,26 @@ export default function AppRoutes() {
         />
 
         <Route
-  path="/customer/saved"
-  element={
-    <PrivateRoute>
-      <RoleRoute allowedRoles={["CUSTOMER"]}>
-        <SavedProperties />
-      </RoleRoute>
-    </PrivateRoute>
-  }
-/>
+          path="/customer/saved"
+          element={
+            <PrivateRoute>
+              <RoleRoute allowedRoles={["CUSTOMER"]}>
+                <SavedProperties />
+              </RoleRoute>
+            </PrivateRoute>
+          }
+        />
 
+        <Route
+          path="/customer/properties/add"
+          element={
+            <PrivateRoute>
+              <RoleRoute allowedRoles={["CUSTOMER"]}>
+                <AddProperty />
+              </RoleRoute>
+            </PrivateRoute>
+          }
+        />
 
         {/* =====================
             ADMIN ONLY

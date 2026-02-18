@@ -9,14 +9,19 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http)
+            throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
+
+            // Gateway handles auth
             .authorizeHttpRequests(auth -> auth
-                // Gateway already validated JWT
-                .anyRequest().permitAll()
-            );
+                    .anyRequest().permitAll()
+            )
+
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable());
 
         return http.build();
     }

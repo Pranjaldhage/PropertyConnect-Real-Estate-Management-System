@@ -1,81 +1,114 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-const tokenFromStorage = localStorage.getItem("token");
-const userIdFromStorage = localStorage.getItem("userId");
-const roleFromStorage = localStorage.getItem("role");
+/* ============================
+   LOCAL STORAGE SAFE READ
+============================ */
 
-const savedCountFromStorage =
-  Number(localStorage.getItem("savedCount")) || 0;
+const safeGet = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const tokenFromStorage = safeGet("token");
+const userIdFromStorage = safeGet("userId");
+const roleFromStorage = safeGet("role");
+
+const savedCountFromStorage = Number(
+  safeGet("savedCount")
+) || 0;
+
+const hasSession =
+  !!tokenFromStorage &&
+  !!userIdFromStorage &&
+  !!roleFromStorage;
+
+/* ============================
+   INITIAL STATE
+============================ */
 
 const initialState = {
-  token: tokenFromStorage,
+  token: hasSession ? tokenFromStorage : null,
 
-  user:
-    tokenFromStorage && userIdFromStorage
-      ? {
-          id: Number(userIdFromStorage),
-          role: roleFromStorage,
-        }
-      : null,
+  user: hasSession
+    ? {
+        id: Number(userIdFromStorage),
+        role: roleFromStorage,
+      }
+    : null,
 
-  // 🔥 mark loaded if token exists
-  loaded: !!tokenFromStorage,
+  // hydrated from storage, not validated yet
+  loaded: true,
 
-  // ADMIN UI STATE
+  // ADMIN badge
   pendingCount: 0,
 
-  // 💾 CART badge
+  // CART badge
   savedCount:
-    roleFromStorage === "CUSTOMER"
+    hasSession && roleFromStorage === "CUSTOMER"
       ? savedCountFromStorage
       : 0,
+
+  // session meta
+  logoutReason: null,
 };
+
+/* ============================
+   SLICE
+============================ */
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
     setAuth(state, action) {
-      state.token = action.payload.token;
-      state.user = action.payload.user;
+      const { token, user } = action.payload || {};
+
+      if (!token || !user) {
+        return;
+      }
+
+      state.token = token;
+      state.user = user;
       state.loaded = true;
+      state.logoutReason = null;
 
-      const { id, role } = action.payload.user;
+      localStorage.setItem("token", token);
+      localStorage.setItem("userId", user.id);
+      localStorage.setItem("role", user.role);
 
-      // 🔥 persist auth
-      localStorage.setItem("token", action.payload.token);
-      localStorage.setItem("userId", id);
-      localStorage.setItem("role", role);
-
-      // 🔥 reset cart count if not customer
-      if (role !== "CUSTOMER") {
+      if (user.role !== "CUSTOMER") {
         state.savedCount = 0;
         localStorage.removeItem("savedCount");
       }
     },
 
     setUser(state, action) {
-      state.user = action.payload;
+      const user = action.payload;
+
+      if (!user) return;
+
+      state.user = user;
       state.loaded = true;
 
-      const { id, role } = action.payload;
+      localStorage.setItem("userId", user.id);
+      localStorage.setItem("role", user.role);
 
-      localStorage.setItem("userId", id);
-      localStorage.setItem("role", role);
-
-      if (role !== "CUSTOMER") {
+      if (user.role !== "CUSTOMER") {
         state.savedCount = 0;
         localStorage.removeItem("savedCount");
       }
     },
 
-    clearAuth(state) {
+    clearAuth(state, action) {
       state.token = null;
       state.user = null;
-      state.loaded = true;
-
       state.pendingCount = 0;
       state.savedCount = 0;
+      state.logoutReason =
+        action?.payload?.reason || "manual";
 
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
@@ -88,7 +121,7 @@ const authSlice = createSlice({
     ========================= */
 
     setPendingCount(state, action) {
-      state.pendingCount = action.payload;
+      state.pendingCount = action.payload || 0;
     },
 
     decrementPendingCount(state) {
@@ -102,11 +135,12 @@ const authSlice = createSlice({
     ========================= */
 
     setSavedCount(state, action) {
-      state.savedCount = action.payload;
+      const value = Number(action.payload) || 0;
+      state.savedCount = value;
 
       localStorage.setItem(
         "savedCount",
-        String(action.payload)
+        String(value)
       );
     },
 
@@ -157,6 +191,9 @@ export const selectPendingCount = (state) =>
 
 export const selectSavedCount = (state) =>
   state.auth.savedCount;
+
+export const selectLogoutReason = (state) =>
+  state.auth.logoutReason;
 
 export const {
   setAuth,

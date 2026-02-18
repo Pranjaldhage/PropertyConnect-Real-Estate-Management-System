@@ -1,7 +1,6 @@
 package com.app.specification;
 
 import org.springframework.data.jpa.domain.Specification;
-
 import com.app.model.Property;
 
 public class PropertySpecification {
@@ -11,24 +10,30 @@ public class PropertySpecification {
     ====================== */
 
     public static Specification<Property> hasCity(String city) {
-        return (root, query, cb) ->
-                city == null || city.isBlank()
-                        ? null
-                        : cb.equal(root.get("city"), city);
+        return (root, query, cb) -> {
+            if (city == null || city.isBlank()) {
+                return cb.conjunction();
+            }
+            return cb.equal(cb.lower(root.get("city")), city.toLowerCase());
+        };
     }
 
     public static Specification<Property> hasPropertyType(String type) {
-        return (root, query, cb) ->
-                type == null || type.isBlank()
-                        ? null
-                        : cb.equal(root.get("propertyType"), type);
+        return (root, query, cb) -> {
+            if (type == null || type.isBlank()) {
+                return cb.conjunction();
+            }
+            return cb.equal(cb.upper(root.get("propertyType")), type.toUpperCase());
+        };
     }
 
     public static Specification<Property> hasStatus(String status) {
-        return (root, query, cb) ->
-                status == null
-                        ? null
-                        : cb.equal(root.get("status"), status);
+        return (root, query, cb) -> {
+            if (status == null || status.isBlank()) {
+                return cb.conjunction();
+            }
+            return cb.equal(cb.upper(root.get("status")), status.toUpperCase());
+        };
     }
 
     /* ======================
@@ -41,23 +46,19 @@ public class PropertySpecification {
 
         return (root, query, cb) -> {
 
-            if (minPrice == null && maxPrice == null)
-                return null;
+            if (minPrice == null && maxPrice == null) {
+                return cb.conjunction();
+            }
 
-            if (minPrice != null && maxPrice != null)
-                return cb.between(
-                        root.get("price"),
-                        minPrice,
-                        maxPrice);
+            if (minPrice != null && maxPrice != null) {
+                return cb.between(root.get("price"), minPrice, maxPrice);
+            }
 
-            if (minPrice != null)
-                return cb.greaterThanOrEqualTo(
-                        root.get("price"),
-                        minPrice);
+            if (minPrice != null) {
+                return cb.greaterThanOrEqualTo(root.get("price"), minPrice);
+            }
 
-            return cb.lessThanOrEqualTo(
-                    root.get("price"),
-                    maxPrice);
+            return cb.lessThanOrEqualTo(root.get("price"), maxPrice);
         };
     }
 

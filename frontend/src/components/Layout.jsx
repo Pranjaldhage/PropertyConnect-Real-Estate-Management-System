@@ -3,12 +3,14 @@ import Footer from "./Footer";
 
 export default function Layout({ children }) {
   return (
-    <>
+    <div className="d-flex flex-column min-vh-100">
       <Navbar />
-      <main style={{ minHeight: "80vh", padding: "20px" }}>
+
+      <main className="flex-grow-1 py-4">
         {children}
       </main>
+
       <Footer />
-    </>
+    </div>
   );
 }

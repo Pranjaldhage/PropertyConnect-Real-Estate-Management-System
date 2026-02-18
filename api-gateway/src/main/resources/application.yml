@@ -8,6 +8,9 @@ spring:
   cloud:
     gateway:
 
+      forwarded:
+        enabled: true
+
       globalcors:
         add-to-simple-url-handler-mapping: true
         corsConfigurations:
@@ -30,17 +33,17 @@ spring:
             - Path=/auth/**
 
         - id: user-service
-          uri: http://localhost:8083
+          uri: http://localhost:8082
           predicates:
             - Path=/users/**
 
         - id: property-service
-          uri: http://localhost:8082
+          uri: http://localhost:8083
           predicates:
             - Path=/properties/**
 
         - id: enquiry-service
-          uri: http://localhost:5018
+          uri: http://localhost:8084
           predicates:
             - Path=/enquiries/**
 
@@ -48,3 +51,20 @@ spring:
           uri: http://localhost:8085
           predicates:
             - Path=/cart/**
+
+# ============================
+# JWT CONFIG
+# ============================
+
+jwt:
+  secret: ${JWT_SECRET:atharvgorakhlokhandemobilenumber8530396494}
+
+# ============================
+# ACTUATOR (OPTIONAL)
+# ============================
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

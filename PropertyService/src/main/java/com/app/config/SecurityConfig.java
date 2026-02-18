@@ -5,10 +5,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -16,28 +24,32 @@ import java.io.IOException;
 @Configuration
 public class SecurityConfig {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(SecurityConfig.class);
+
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http)
+            throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
 
-            // 🔥 DO NOT authenticate here — gateway already did it
+            // Gateway authenticates
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll()
             )
 
-            // role check after headers arrive
             .addFilterBefore(
                 roleFilter(),
-                org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
+                org.springframework.security.web.authentication
+                        .UsernamePasswordAuthenticationFilter.class
             );
 
         return http.build();
     }
 
     /* ===================================================
-       ROLE CHECK FILTER (reads X-USER-ROLE from Gateway)
+       ROLE + HEADER VALIDATION FILTER
     =================================================== */
 
     @Bean
@@ -52,23 +64,60 @@ public class SecurityConfig {
                     FilterChain filterChain)
                     throws ServletException, IOException {
 
-                String path = request.getRequestURI();
-                String role = request.getHeader("X-USER-ROLE");
+                final String path = request.getRequestURI();
+                final String method = request.getMethod();
+
+                // allow CORS preflight
+                if (HttpMethod.OPTIONS.matches(method)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                final String userId =
+                        request.getHeader("X-USER-ID");
+
+                final String role =
+                        request.getHeader("X-USER-ROLE");
 
                 /* =============================
-                   ADMIN ONLY ENDPOINTS
+                   PUBLIC PROPERTY ROUTES
+                ============================= */
+                if (method.equals("GET")
+                        && (path.equals("/properties")
+                            || path.matches("/properties/\\d+")
+                            || path.startsWith("/properties/search"))) {
+
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                // everything else requires gateway headers
+                if (userId == null || role == null) {
+
+                    log.warn("Missing gateway headers for {}", path);
+
+                    respond(
+                            response,
+                            HttpServletResponse.SC_UNAUTHORIZED,
+                            "Missing gateway authentication headers");
+
+                    return;
+                }
+
+                /* =============================
+                   ADMIN ONLY
                 ============================= */
 
-                if (
-                        path.startsWith("/properties/admin") ||
-                        path.contains("/approve")
-                ) {
+                if (path.startsWith("/properties/admin")
+                        || path.endsWith("/approve")
+                        || path.endsWith("/reject")) {
 
                     if (!"ADMIN".equals(role)) {
 
-                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                        response.getWriter()
-                                .write("ADMIN role required");
+                        respond(
+                                response,
+                                HttpServletResponse.SC_FORBIDDEN,
+                                "ADMIN role required");
 
                         return;
                     }
@@ -77,5 +126,17 @@ public class SecurityConfig {
                 filterChain.doFilter(request, response);
             }
         };
+    }
+
+    private void respond(
+            HttpServletResponse response,
+            int status,
+            String message) throws IOException {
+
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        response.getWriter()
+                .write("{\"error\":\"" + message + "\"}");
     }
 }

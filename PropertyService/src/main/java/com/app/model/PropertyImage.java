@@ -1,5 +1,6 @@
 package com.app.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
@@ -18,10 +19,9 @@ public class PropertyImage {
     @Column(name = "is_primary", nullable = false)
     private Boolean isPrimary;
 
-    // MANY IMAGES → ONE PROPERTY
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_id")
-    @JsonIgnore
+    @JsonBackReference
     private Property property;
 
     // getters and setters

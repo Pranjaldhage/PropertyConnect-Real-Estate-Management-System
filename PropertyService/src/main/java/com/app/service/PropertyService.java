@@ -75,14 +75,15 @@ public class PropertyService {
             String status,
             Pageable pageable
     ) {
+        String s = (status == null || status.isBlank())
+                ? "PENDING"
+                : status.toUpperCase();
 
-        Specification<Property> spec =
-                Specification.where(
-                        PropertySpecification.hasStatus(status));
-
-        return repository.findAll(spec, pageable);
+        return repository.findAll(
+                PropertySpecification.hasStatus(s),
+                pageable
+        );
     }
-
     /* ======================
        PUBLIC
     ====================== */

@@ -3,26 +3,38 @@ import { useNavigate } from "react-router-dom";
 export default function PropertyCard({ property }) {
   const navigate = useNavigate();
 
-  const handleView = () => {
-    navigate(`/properties/${property.id}`);
-  };
-
   return (
-    <div className="property-card">
+    <div className="card h-100 shadow-sm border-0 rounded-3">
+      {/* IMAGE */}
       <img
         src={
           property.images?.[0]?.imageUrl ||
-          "https://via.placeholder.com/400x250"
+          "https://via.placeholder.com/400x250?text=Property"
         }
-        alt="property"
-        width="250"
+        alt={property.title}
+        className="card-img-top"
+        style={{ height: 180, objectFit: "cover" }}
       />
 
-      <h3>{property.title}</h3>
-      <p>{property.city}</p>
-      <p>₹ {property.price}</p>
+      {/* BODY */}
+      <div className="card-body d-flex flex-column">
+        <h5 className="fw-semibold mb-1">{property.title}</h5>
 
-      <button onClick={handleView}>View</button>
+        <div className="text-muted mb-1">
+          📍 {property.city}
+        </div>
+
+        <div className="fw-bold mb-2">
+          ₹ {property.price?.toLocaleString()}
+        </div>
+
+        <button
+          onClick={() => navigate(`/properties/${property.id}`)}
+          className="btn btn-outline-primary mt-auto"
+        >
+          View Details
+        </button>
+      </div>
     </div>
   );
 }

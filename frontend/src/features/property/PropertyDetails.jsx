@@ -10,12 +10,9 @@ import {
 } from "../../api/propertyApi";
 
 import { sendEnquiry } from "../../api/enquiryApi";
-import { addToCart } from "../../api/cartApi";
+import { addToCart, getSavedProperties } from "../../api/cartApi";
 
-import {
-  selectIsAdmin,
-  selectIsLoggedIn,
-} from "../../store/authSlice";
+import { selectIsAdmin, selectIsLoggedIn } from "../../store/authSlice";
 
 export default function PropertyDetails() {
   const { id } = useParams();
@@ -32,22 +29,60 @@ export default function PropertyDetails() {
   const [loading, setLoading] = useState(true);
 
   const [processing, setProcessing] = useState(false);
+
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState("");
+  const [saveStatus, setSaveStatus] = useState(""); // "", "saved", "already", "error"
+
+  const pageStyle = {
+    background: "#f6f8fc",
+    minHeight: "calc(100vh - 56px)",
+  };
+
+  const shellStyle = {
+    maxWidth: 980,
+  };
+
+  const cardStyle = {
+    borderRadius: 18,
+    overflow: "hidden",
+  };
 
   useEffect(() => {
-    fetchProperty();
-  }, [id]);
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isLoggedIn]);
 
-  const fetchProperty = async () => {
+  const fetchAll = async () => {
     try {
+      setLoading(true);
+      setStatus("");
+
       const [propRes, imgRes] = await Promise.all([
         getPropertyById(id),
         getPropertyImages(id),
       ]);
 
       setProperty(propRes.data);
-      setImages(imgRes.data);
+      setImages(imgRes.data || []);
+
+      if (isLoggedIn) {
+        try {
+          const savedRes = await getSavedProperties();
+          const items = savedRes?.data?.items || [];
+
+          const alreadySaved = items.some(
+            (x) => String(x.propertyId) === String(id)
+          );
+
+          if (alreadySaved) setSaveStatus("saved");
+          else setSaveStatus("");
+        } catch (e) {
+          console.error("CHECK_SAVED_ERROR:", e);
+          setSaveStatus("");
+        }
+      } else {
+        setSaveStatus("");
+      }
     } catch (err) {
       console.error(err);
       setStatus("Failed to load property");
@@ -57,30 +92,33 @@ export default function PropertyDetails() {
   };
 
   /* ======================
-       CART SAVE
+       SAVE PROPERTY
   ====================== */
 
   const handleSave = async () => {
-  if (!isLoggedIn) {
-    navigate(`/auth/login?redirect=/properties/${id}`);
-    return;
-  }
+    if (!isLoggedIn) {
+      navigate(`/auth/login?redirect=/properties/${id}`);
+      return;
+    }
 
-  try {
-    setSaving(true);
-    setSaveStatus("");
+    if (saving || saveStatus === "saved" || saveStatus === "already") return;
 
-    await addToCart(property.id, property.price);
+    try {
+      setSaving(true);
+      setSaveStatus("");
 
-    setSaveStatus("✅ Property saved!");
-  } catch (err) {
-    console.error(err);
-    setSaveStatus("❌ Failed to save property");
-  } finally {
-    setSaving(false);
-  }
-};
+      await addToCart(id, property.price);
 
+      setSaveStatus("saved");
+    } catch (err) {
+      console.error(err);
+      const msg = err?.response?.data?.message?.toLowerCase() || "";
+      if (msg.includes("already")) setSaveStatus("already");
+      else setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /* ======================
         ADMIN
@@ -120,174 +158,213 @@ export default function PropertyDetails() {
        UI STATES
   ====================== */
 
-  if (loading) return <h2>Loading...</h2>;
-  if (!property) return <h2>{status}</h2>;
+  if (loading) {
+    return (
+      <section style={pageStyle}>
+        <div className="container py-5 text-center">
+          <div className="spinner-border text-primary mb-3" role="status" />
+          <div className="text-muted">Loading property details...</div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!property) {
+    return (
+      <section style={pageStyle}>
+        <div className="container py-5 text-center">
+          <h4 className="text-danger">{status || "Property not found"}</h4>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 900, margin: "auto", padding: 20 }}>
-      {/* IMAGE GALLERY */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+    <section style={pageStyle}>
+      <div className="container py-4" style={shellStyle}>
+        {/* HEADER (matches other pages) */}
+        <div className="mb-4 text-center">
+          <h1 className="fw-bold mb-1" style={{ letterSpacing: "-0.4px" }}>
+            Property Details
+          </h1>
+          <p className="text-muted mb-0">
+            View full details, images, and contact the owner.
+          </p>
+        </div>
+
+        {/* IMAGE GALLERY */}
         {images.length > 0 ? (
-          images.map((img) => (
-            <img
-              key={img.id}
-              src={img.imageUrl}
-              alt="property"
-              width={260}
-              height={180}
-              style={{ objectFit: "cover", borderRadius: 8 }}
-            />
-          ))
-        ) : (
-          <p>No images available</p>
-        )}
-      </div>
-
-      {/* PROPERTY INFO */}
-      <h2>{property.title}</h2>
-      <p>
-        <b>City:</b> {property.city}
-      </p>
-      <p>
-        <b>State:</b> {property.state}
-      </p>
-      <p>
-        <b>Price:</b> ₹ {property.price}
-      </p>
-      <p>{property.description}</p>
-
-      <p>
-        {property.addressLine}, {property.state} - {property.pincode}
-      </p>
-
-      {/* ======================
-     SAVE BUTTON
-====================== */}
-
-{!isAdmin && isLoggedIn && (
-  <div style={{ marginTop: 20 }}>
-    <button
-      onClick={handleSave}
-      disabled={saving}
-      style={{
-        background: "#2563eb",
-        color: "white",
-        border: "none",
-        padding: "10px 16px",
-        borderRadius: 6,
-        cursor: "pointer",
-        opacity: saving ? 0.6 : 1,
-      }}
-    >
-      {saving ? "Saving..." : "💾 Save Property"}
-    </button>
-
-    {saveStatus && (
-      <p style={{ marginTop: 8 }}>{saveStatus}</p>
-    )}
-
-    {saveStatus.includes("saved") && (
-      <Link
-        to="/customer/saved"
-        style={{ display: "block", marginTop: 6 }}
-      >
-        View Saved Properties →
-      </Link>
-    )}
-  </div>
-)}
-
-      {/* ======================
-           ADMIN ACTIONS
-      ====================== */}
-
-      {isAdmin && property.status === "PENDING" && (
-        <>
-          <hr />
-
-          <h3>Admin Actions</h3>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <button
-              onClick={handleApprove}
-              disabled={processing}
-              style={{
-                background: "green",
-                color: "white",
-                border: "none",
-                padding: "8px 14px",
-                cursor: "pointer",
-                opacity: processing ? 0.6 : 1,
-              }}
-            >
-              {processing ? "Processing..." : "✅ Approve"}
-            </button>
-
-            <button
-              onClick={handleReject}
-              disabled={processing}
-              style={{
-                background: "#b00020",
-                color: "white",
-                border: "none",
-                padding: "8px 14px",
-                cursor: "pointer",
-                opacity: processing ? 0.6 : 1,
-              }}
-            >
-              {processing ? "Processing..." : "🚫 Reject"}
-            </button>
+          <div className="row g-3 mb-4">
+            {images.map((img) => (
+              <div key={img.id} className="col-md-4">
+                <img
+                  src={img.imageUrl}
+                  alt="property"
+                  className="img-fluid shadow-sm"
+                  style={{
+                    borderRadius: 18,
+                    height: 220,
+                    width: "100%",
+                    objectFit: "cover",
+                    background: "#eef1f6",
+                  }}
+                />
+              </div>
+            ))}
           </div>
-        </>
-      )}
+        ) : (
+          <div className="text-muted text-center mb-4">No images available</div>
+        )}
 
-      {/* ======================
-           CUSTOMER ENQUIRY
-      ====================== */}
+        {/* MAIN CARD */}
+        <div className="card border-0 shadow-sm" style={cardStyle}>
+          <div className="card-body p-4">
+            <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+              <div>
+                <h2 className="fw-bold mb-1">{property.title}</h2>
+                <p className="text-muted mb-0">
+                  {property.city}, {property.state}
+                </p>
+              </div>
 
-      {!isAdmin && (
-        <>
-          <hr />
+              <span className="badge bg-success fs-6 px-3 py-2 rounded-3">
+                ₹ {property.price}
+              </span>
+            </div>
 
-          <h3>Send Enquiry</h3>
+            <p className="mt-3 mb-2">{property.description}</p>
 
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
+            <p className="small text-secondary mb-0">
+              📍 {property.addressLine}, {property.state} - {property.pincode}
+            </p>
 
-              if (!message.trim()) {
-                setStatus("Message cannot be empty");
-                return;
-              }
+            {/* SAVE */}
+            {!isAdmin && (
+              <div className="mt-4">
+                <button
+                  onClick={handleSave}
+                  disabled={
+                    !isLoggedIn ||
+                    saving ||
+                    saveStatus === "saved" ||
+                    saveStatus === "already"
+                  }
+                  className={`btn btn-lg px-4 rounded-3 ${
+                    saveStatus === "saved" || saveStatus === "already"
+                      ? "btn-success"
+                      : "btn-primary"
+                  }`}
+                  title={!isLoggedIn ? "Login to save" : ""}
+                >
+                  {!isLoggedIn
+                    ? "Login to Save"
+                    : saving
+                    ? "Saving..."
+                    : saveStatus === "saved"
+                    ? "✅ Saved"
+                    : saveStatus === "already"
+                    ? "✅ Already Saved"
+                    : "💾 Save Property"}
+                </button>
 
-              try {
-                await sendEnquiry({
-                  propertyId: property.id,
-                  message,
-                });
+                {saveStatus === "error" && (
+                  <div className="alert alert-danger mt-3 py-2 mb-0">
+                    ❌ Failed to save property
+                  </div>
+                )}
 
-                setStatus("✅ Enquiry sent successfully!");
-                setMessage("");
-              } catch (err) {
-                console.error(err);
-                setStatus("❌ Failed to send enquiry");
-              }
-            }}
-          >
-            <textarea
-              rows={4}
-              style={{ width: "100%", marginBottom: 10 }}
-              placeholder="Write your enquiry here..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
+                {(saveStatus === "saved" || saveStatus === "already") && (
+                  <Link
+                    to="/customer/saved"
+                    className="d-block mt-2 fw-semibold text-decoration-none"
+                  >
+                    View Saved Properties →
+                  </Link>
+                )}
+              </div>
+            )}
 
-            <button type="submit">Send</button>
+            {/* ADMIN ACTIONS */}
+            {isAdmin && property.status === "PENDING" && (
+              <>
+                <hr className="my-4" />
+                <h5 className="fw-bold mb-3">Admin Actions</h5>
 
-            {status && <p>{status}</p>}
-          </form>
-        </>
-      )}
-    </div>
+                <div className="d-flex gap-2 flex-wrap">
+                  <button
+                    onClick={handleApprove}
+                    disabled={processing}
+                    className="btn btn-success px-4 rounded-3"
+                  >
+                    {processing ? "Processing..." : "✅ Approve"}
+                  </button>
+
+                  <button
+                    onClick={handleReject}
+                    disabled={processing}
+                    className="btn btn-danger px-4 rounded-3"
+                  >
+                    {processing ? "Processing..." : "🚫 Reject"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ENQUIRY */}
+            {!isAdmin && (
+              <>
+                <hr className="my-4" />
+                <h5 className="fw-bold mb-3">Send Enquiry</h5>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+
+                    if (!message.trim()) {
+                      setStatus("Message cannot be empty");
+                      return;
+                    }
+
+                    try {
+                      await sendEnquiry({ propertyId: property.id, message });
+                      setStatus("✅ Enquiry sent successfully!");
+                      setMessage("");
+                    } catch (err) {
+                      console.error(err);
+                      setStatus("❌ Failed to send enquiry");
+                    }
+                  }}
+                >
+                  <textarea
+                    rows={4}
+                    className="form-control mb-3"
+                    placeholder="Write your enquiry here..."
+                    value={message}
+                    onChange={(e) => {
+                      setMessage(e.target.value);
+                      setStatus("");
+                    }}
+                  />
+
+                  <button className="btn btn-outline-primary px-4 rounded-3">
+                    Send Enquiry
+                  </button>
+
+                  {status && (
+                    <div
+                      className={`alert mt-3 py-2 mb-0 ${
+                        status.includes("✅") ? "alert-success" : "alert-danger"
+                      }`}
+                    >
+                      {status}
+                    </div>
+                  )}
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

@@ -1,12 +1,20 @@
 import axios from "axios";
 
+/**
+ * Axios instance for API Gateway calls.
+ * Only JWT is attached here — Gateway handles identity propagation.
+ */
+
 const api = axios.create({
-  baseURL: "http://localhost:8086", // API Gateway
+  baseURL: import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:8086",
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 /* ============================
-   REQUEST — attach JWT ONLY
-   Gateway will decode it
+   REQUEST INTERCEPTOR
 ============================ */
 api.interceptors.request.use(
   (config) => {
@@ -16,25 +24,51 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // Trace header for debugging across microservices
+    config.headers["X-REQUEST-ID"] =
+      crypto.randomUUID?.() ||
+      Math.random().toString(36).substring(2);
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 /* ============================
-   RESPONSE — handle 401
+   RESPONSE INTERCEPTOR
 ============================ */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+
+    // Network / gateway down
+    if (!error.response) {
+      console.error("NETWORK_ERROR:", error);
+      alert("Server unreachable. Please try again.");
+      return Promise.reject(error);
+    }
+
+    // Unauthorized → force login (unless already there)
+    if (status === 401) {
       localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
 
-      const currentPath = window.location.pathname;
+      const path = window.location.pathname;
 
-      window.location.href = `/auth/login?redirect=${encodeURIComponent(
-        currentPath
-      )}`;
+      if (!path.startsWith("/auth/login")) {
+        window.location.href = `/auth/login?redirect=${encodeURIComponent(
+          path
+        )}`;
+      }
+
+      return Promise.reject(error);
+    }
+
+    // Forbidden → logged in but not allowed
+    if (status === 403) {
+      alert("You are not authorized to access this resource.");
     }
 
     return Promise.reject(error);
